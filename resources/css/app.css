@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@theme {
+    /*
+     * The navy the Filament admin panel is branded with (#123A6D), extended
+     * into a scale so the public ride board reads as the same product.
+     */
+    --color-brand-50: #f1f5fa;
+    --color-brand-100: #dde7f3;
+    --color-brand-200: #bccfe7;
+    --color-brand-300: #8dadd4;
+    --color-brand-400: #5785bc;
+    --color-brand-500: #3566a3;
+    --color-brand-600: #123a6d;
+    --color-brand-700: #0f325e;
+    --color-brand-800: #0d2a4e;
+    --color-brand-900: #0b2441;
+    --color-brand-950: #071729;
+
+    --font-sans:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+}
