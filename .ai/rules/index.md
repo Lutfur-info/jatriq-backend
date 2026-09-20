@@ -6,7 +6,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | --- | --- |
 | app/Filament/**, app/Providers/Filament/** | .ai/rules/admin-panel.md |
 | app/Http/Controllers/Api/Auth/** | .ai/rules/auth.md |
-| app/Http/Controllers/Api/BookingController.php, app/Services/BookingService.php, app/Models/Booking.php, app/Repositories/Contracts/BookingRepository.php, app/Repositories/Eloquent/BookingEloquentRepository.php | .ai/rules/bookings.md |
+| app/Http/Controllers/Api/BookingController.php, app/Http/Controllers/Api/Driver/RideBookingController.php, app/enum/BookingStatus.php, app/Services/BookingService.php, app/Models/Booking.php, app/Repositories/Contracts/BookingRepository.php, app/Repositories/Eloquent/BookingEloquentRepository.php, app/Notifications/BookingDecided.php, app/Http/Controllers/Api/NotificationController.php, app/Services/NotificationService.php, app/Http/Resources/NotificationResource.php, app/Repositories/Contracts/NotificationRepository.php, app/Repositories/Eloquent/NotificationEloquentRepository.php | .ai/rules/bookings.md |
 | app/Http/Controllers/Api/FavouriteDriverController.php, app/Services/FavouriteDriverService.php, app/Repositories/Contracts/FavouriteDriverRepository.php, app/Repositories/Eloquent/FavouriteDriverEloquentRepository.php, app/Http/Resources/FavouriteDriverResource.php, app/Http/Resources/RiderResource.php | .ai/rules/favourites.md |
 | resources/js/layouts/public-layout.tsx | .ai/rules/layouts.md |
 | app/Services/RatingService.php, app/Http/Controllers/Api/BookingRatingController.php, app/Http/Requests/Api/Booking/RateBookingRequest.php | .ai/rules/ratings.md |

@@ -223,6 +223,7 @@ Deviations from a stock Laravel install, and why:
 | --- | --- |
 | `app/enum/` | Lower-case namespace `App\enum` (existing choice, keep it). Holds `Gender`, `Role`, `OtpStatus`, `DocumentType`, `DocumentStatus`, `VerificationStatus`, `VehicleModel`, `CabinClass`, `BookingStatus`. |
 | `app/Services/` | Approved 2026-08-28 for `OtpService`. Business operations that outgrow a controller belong here. |
+| `app/Notifications/` | Added 2026-09-20 for `BookingDecided`. One class per thing somebody is told; each is **sent by the thing that happened**, not by a feed endpoint. |
 | `app/Http/Controllers/Api/Auth/` | JSON auth controllers. Routes are flat (`/api/login`), not versioned — decided 2026-08-28. |
 | `app/Http/Requests/Api/Auth/` | One form request per endpoint. All input validation lives here, never in controllers. |
 | `app/Http/Requests/Concerns/` | Shared request behaviour: `NormalizesMsisdn`, `ValidatesDocumentUploads`, `BuildsDocumentFileRules`. |
@@ -254,6 +255,11 @@ Four separate flags, don't conflate them:
 - `verification_status` / `verified_at` — the **identity badge**. Derived from reviewed
   documents by `VerificationService::refreshBadge()`, never assigned. Nothing to do with the msisdn.
 - `email_verified_at` — unused so far. Email is optional and plays no part in auth.
+
+`notifications` is Laravel's own table, unaltered (2026-09-20): a uuid key, the class in `type`,
+the recipient in a `notifiable` morph, the whole payload as JSON in `data`, and `read_at` null
+until it has been opened. Left alone deliberately — a column per fact would have to grow with
+every kind of notification, and each one is rendered from its own payload.
 
 `Gender` and `Role` are **pure (non-backed) enums** storing the case *name* (`'Driver'`), matching
 `$table->enum('role', Role::names())` in the migration. Eloquent resolves pure enums via
@@ -536,7 +542,16 @@ the API's one **`role:Passenger`** endpoint, and it also needs the identity badg
   - **The driver sees a name and a badge, never a number.** `RiderResource` is a new minimal
     shape, deliberately not `UserResource`. Whether a confirmed booking should unlock a phone
     number is still an open product and privacy decision.
-  - `tests/Feature/DriverBookingDecisionTest.php` pins it (18 tests).
+  - **The answer is what tells the passenger** (2026-09-20). `BookingService::decide()` sends
+    `BookingDecided` on the `database` channel. From the *service* so every route to a decision
+    carries it; **after** the transaction commits, so a rolled-back decision cannot leave a
+    notification claiming it happened; and **only when the status actually changed**, because
+    re-sending the answer a booking already has is exactly what a client with a lost response
+    does and the endpoint accepts that quietly. The payload is a **copy** — both place names,
+    the seats, and the worded `title`/`body` — not ids to resolve later, since a feed has to
+    render from what it holds.
+  - `tests/Feature/DriverBookingDecisionTest.php` pins the decision (18 tests) and
+    `tests/Feature/BookingNotificationTest.php` pins what it tells her (15).
 
 - **The seat count is the whole request.** The route, the departure and the fare are the driver's.
 - **One booking per passenger per ride** (`unique(['ride_id','user_id']`)). Booking again **tops up**
@@ -570,17 +585,22 @@ the API's one **`role:Passenger`** endpoint, and it also needs the identity badg
 - **`GET /api/bookings` is the passenger's own list**, past trips included, upcoming soonest-first
   and then trips already taken latest-first. It does *not* need the badge — it is the booking that
   needs verifying, not the looking, the same bargain `GET /driver/rides` makes.
-- **`BookingResource` is flat**: `seats`, `total_amount`, `vehicle_number`, `origin_name`,
-  `destination_name`, `departs_at`, `created_at`. Not the ride's own shape — place ids and seat
-  inventory stay in `RideResource`, which the create response still carries alongside.
+- **`BookingResource` is flat**: `seats`, `status` + `status_label`, `decided_at`, `rating`,
+  `rated_at`, `can_rate`, `total_amount`, `vehicle_number`, `origin_name`, `destination_name`,
+  `departs_at`, `created_at`. Not the ride's own shape — place ids and seat inventory stay in
+  `RideResource`, which the create response still carries alongside. The label ships beside the
+  case name so no client spells a state out of an enum.
   It needs `ride` and `ride.vehicle` loaded; the list eager-loads them and the repository attaches
   the ride it already holds on a write.
 - **`total_amount` is `bcmul`, not float arithmetic** — 650.50 × 2 is exactly `1301.00`.
   `Ride::$seat_price` is typed `numeric-string` to make that call type-safe. It is derived rather
   than stored, which is only safe because a booked ride can no longer change its price.
-- The list carries **nothing about the driver**: `UserResource` is the only user shape and it holds
-  email, msisdn and date of birth, which is more than a passenger should get. "Who am I riding
-  with" needs a new minimal shape and is a privacy decision.
+- **Each end sees the other, and neither gets a number.** `passenger` and `driver` are both
+  `RiderResource` — name, badge and score, no contact details — and each is present only where
+  its relation was loaded, which is always the *opposite* end from whoever is asking. That
+  replaced the older rule that a booking carried nothing about the driver (2026-09-19): the
+  minimal shape is what made it safe, and `UserResource`, which holds email, msisdn and date of
+  birth, is still never sent about somebody else.
 
 ## Ratings
 
@@ -642,6 +662,40 @@ The drivers a passenger wants to ride with again. `role:Passenger`, added 2026-0
   per screen, so both read the same answer.
 - `tests/Feature/FavouriteDriverTest.php` (15 tests), plus `favourite_driver_controller_test.dart`
   and `favourite_driver_api_test.dart` in the app. See `.ai/rules/favourites.md`.
+
+## Notifications
+
+What somebody is told happened while they were not looking. Added 2026-09-20, and the first
+thing in it is the driver's answer to a request for seats — a seat is asked for, not taken, so
+that answer is the one thing a passenger is genuinely waiting on.
+
+- **Stored, not pushed.** `via()` is `['database']` and that is the whole delivery: the answer
+  waits in her feed and a bell counts it. There is no device token anywhere in this system.
+  Adding push later means adding a channel and a token store; nothing here is rewritten.
+- **A notification is sent by the thing that happened**, never by the feed. `BookingDecided`
+  goes out from `BookingService::decide()` beside the decision it is about — see Bookings for
+  the three rules that go with that (from the service, after commit, only on a change).
+- **The payload is a copy, and the wording is the server's.** `title` and `body` arrive written,
+  for the reason `status_label` does: a phone in somebody's pocket must not need a release to
+  reword a sentence. Only `booking_id` and `ride_id` point outward, for a client that wants to
+  open what is being talked about.
+- `GET /api/notifications`, `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`.
+  All `role:Driver,Passenger` — either end of a ride can be told something — and **none of them
+  takes `verified.identity`**: reading what you have already been told is not doing anything.
+  `read-all` is declared **before** the `{notification}` route, or it would be read as a uuid.
+- **Every response carries `unread_count`**, the two writes included, so a client's badge never
+  needs a second call. Marking one read twice is accepted and does **not** move `read_at`, so a
+  lost response is safe to repeat.
+- **`NotificationResource` is generic**: `type`, `title` and `body` hoisted, the stored payload
+  passed through whole as `data`. That is what lets a new kind of notification reach a screen
+  with no client change; a resource that named a booking's fields would need a branch per class.
+- **Every repository method is scoped to a user** — there is no find-by-id that is not also "and
+  it is theirs" — and somebody else's is a **404**, the answer a ride that is not yours gives.
+- In the app: a bell with an unread badge in the header, plus **Notifications** in the side menu.
+  `NotificationController` is app-wide, and the composition root clears it on every sign-in/out
+  transition so the next person on the phone never sees the last one's feed.
+- `tests/Feature/BookingNotificationTest.php` (15 tests), plus `notification_api_test.dart` and
+  `notification_controller_test.dart` in the app.
 
 ## The public web board
 
@@ -936,12 +990,14 @@ email, the API by msisdn.
   `ViteException` whenever the built manifest is older than the page components. Run
   `npm run build` (or `npm run dev`) and it passes; `RideBoardTest` calls `withoutVite()` and is
   unaffected either way.
-- **`tests/Feature/DatabaseSeederTest.php` fails: 3 failures and 1 error.** It signs in as
-  `01700000000`–`2` while `DatabaseSeeder` stores `1700000000`–`2`, so the lookups miss.
-  Either side could be the one to change — the seeder to match every other number in the
-  codebase, or the test to match the seeder — so it is left for a decision rather than
-  guessed at. Everything else in the suite passes (292 of 296, as of 2026-09-18); the Flutter
-  suite is 179 green with a clean `flutter analyze`.
+- **Two seeder suites fail, and both predate the features around them.**
+  `tests/Feature/DatabaseSeederTest.php` (3 failures, 1 error) signs in as `01700000000`–`2`
+  while `DatabaseSeeder` stores `1700000000`–`2`, so the lookups miss. Either side could be the
+  one to change — the seeder to match every other number in the codebase, or the test to match
+  the seeder — so it is left for a decision rather than guessed at.
+  `tests/Feature/RideSeederTest.php` (2 failures) expects eight seeded rides and counts seven;
+  it has not been traced to a cause. **Everything outside those two passes: 383 of 389 as of
+  2026-09-20**, and the Flutter suite is 243 green with a clean `flutter analyze`.
 - **`GET /api/rides` still has no pagination, and no date or price filter.** The web board pages
   (`RideRepository::availablePage()`), but the JSON list was deliberately left whole on
   2026-09-14 because paging it changes a response shape the mobile clients already parse. When
@@ -964,12 +1020,18 @@ email, the API by msisdn.
   either — that means a status column on `rides` and filtering it out of every read and seat sum.
 - **No written review.** A rating is a number; free text brings moderation, abuse reporting and
   a display surface, none of which exist. A driver also cannot rate a passenger.
-- **Nobody is told anything, and this now matters more.** A driver is not notified that somebody
-  is waiting on them, and a passenger is not notified when her request is answered — she finds out
-  by opening the app. That is the most conspicuous gap in the confirmation flow.
-- **The driver app has no queue screen.** The endpoints exist and `BookingStatus` is carried
-  through `apps/lib` (a passenger sees the driver's answer on her bookings), but nothing in the
-  Flutter app lists pending requests or calls `PATCH /driver/bookings/{booking}`.
+- **The driver is still not told that somebody is waiting.** The passenger is now told when her
+  request is answered (2026-09-20, `BookingDecided`), but the mirror does not exist, so a driver
+  only finds a queue by opening it. It needs one more notification class sent from
+  `BookingService::book()` and nothing else — not a line of the feed changes.
+- **Nothing is pushed.** Delivery is the `database` channel and a feed the client reads on sign
+  in and on opening the bell; there is no polling and no socket, so a passenger with the app
+  closed learns nothing until she opens it. Push needs a device-token store and an FCM sender,
+  and then a channel added to `via()` — none of what is written changes.
+- **The feed has no pagination.** `NotificationRepository::forUser()` caps at the latest 50
+  rather than paging, on the same reasoning as the ride list: fine at this size, and paging it
+  changes a response shape the clients already parse. The clients read `unread_count` from the
+  server rather than counting rows, which is what keeps the bell honest past that cap.
 - **Each end of a booking can now see the other, and neither can phone them.** The driver's queue
   names the passenger and her list names the driver, both through `RiderResource` — name and badge,
   no contact details. Unlocking a number on a *confirmed* booking so the two can arrange a pickup

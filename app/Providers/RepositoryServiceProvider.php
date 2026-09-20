@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Repositories\Contracts\BookingRepository;
 use App\Repositories\Contracts\EmergencyContactRepository;
 use App\Repositories\Contracts\FavouriteDriverRepository;
+use App\Repositories\Contracts\NotificationRepository;
 use App\Repositories\Contracts\RideRepository;
 use App\Repositories\Contracts\StopRepository;
 use App\Repositories\Contracts\TravelRouteRepository;
@@ -14,6 +15,7 @@ use App\Repositories\Contracts\VehicleRepository;
 use App\Repositories\Eloquent\BookingEloquentRepository;
 use App\Repositories\Eloquent\EmergencyContactEloquentRepository;
 use App\Repositories\Eloquent\FavouriteDriverEloquentRepository;
+use App\Repositories\Eloquent\NotificationEloquentRepository;
 use App\Repositories\Eloquent\RideEloquentRepository;
 use App\Repositories\Eloquent\StopEloquentRepository;
 use App\Repositories\Eloquent\TravelRouteEloquentRepository;
@@ -45,5 +47,6 @@ class RepositoryServiceProvider extends ServiceProvider
         FavouriteDriverRepository::class => FavouriteDriverEloquentRepository::class,
         TravelRouteRepository::class => TravelRouteEloquentRepository::class,
         StopRepository::class => StopEloquentRepository::class,
+        NotificationRepository::class => NotificationEloquentRepository::class,
     ];
 }

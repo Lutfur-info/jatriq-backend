@@ -6,6 +6,7 @@ use App\enum\BookingStatus;
 use App\Models\Booking;
 use App\Models\Ride;
 use App\Models\User;
+use App\Notifications\BookingDecided;
 use App\Repositories\Contracts\BookingRepository;
 use App\Repositories\Contracts\RideRepository;
 use Illuminate\Database\Eloquent\Collection;
@@ -114,11 +115,28 @@ class BookingService
      * Sending the answer a booking already has is accepted quietly, so a
      * client retrying a lost response does not get an error.
      *
+     * **The passenger is told.** She has been waiting on exactly this since
+     * she asked, and she will not have the app open when it lands. Two
+     * things about where that happens:
+     *
+     * It is sent from here rather than from the controller, so every route
+     * to a decision carries it - an admin override, a console command, a
+     * future auto-decline on departure - and it is sent **after** the
+     * transaction has committed, so a rolled-back decision cannot leave a
+     * notification claiming it happened.
+     *
+     * And only when the answer actually changed. Re-sending the answer a
+     * booking already has is exactly what a client with a lost response
+     * does, and telling her twice that her seat was confirmed would make
+     * the feed a worse record than the booking itself.
+     *
      * @throws ValidationException when confirming no longer fits in the car.
      */
     public function decide(Booking $booking, BookingStatus $status): Booking
     {
-        return DB::transaction(function () use ($booking, $status): Booking {
+        $was = $booking->status;
+
+        $decided = DB::transaction(function () use ($booking, $status): Booking {
             $ride = $this->rides->lockForWrite($booking->ride);
 
             if ($status === BookingStatus::Confirmed && ! $booking->holdsSeats()) {
@@ -145,6 +163,12 @@ class BookingService
 
             return $decided;
         }, attempts: 3);
+
+        if ($was !== $status) {
+            $decided->user->notify(new BookingDecided($decided));
+        }
+
+        return $decided;
     }
 
     /**

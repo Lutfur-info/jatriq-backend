@@ -7,6 +7,12 @@ paths:
   - 'app/Models/Booking.php'
   - 'app/Repositories/Contracts/BookingRepository.php'
   - 'app/Repositories/Eloquent/BookingEloquentRepository.php'
+  - 'app/Notifications/BookingDecided.php'
+  - 'app/Http/Controllers/Api/NotificationController.php'
+  - 'app/Services/NotificationService.php'
+  - 'app/Http/Resources/NotificationResource.php'
+  - 'app/Repositories/Contracts/NotificationRepository.php'
+  - 'app/Repositories/Eloquent/NotificationEloquentRepository.php'
 ---
 
 # Bookings
@@ -68,6 +74,22 @@ A new case is added to `holdingNames()` **and** to the two raw SQL strings, or t
 
 The panel shows the decision and nothing more: an admin reads the queue on the ride's passenger list but does not answer it. If admin override is ever wanted, it goes through `BookingService::decide()`, never a status column written by hand.
 
+## The answer is what tells the passenger (2026-09-20)
+`BookingService::decide()` sends `BookingDecided` to the booking's passenger. Three things about where and when, all load-bearing:
+
+**From the service, not the controller**, so every route to a decision carries it - a future admin override, a console command, an auto-decline on departure. **After the transaction commits**, so a rolled-back decision cannot leave a notification claiming it happened. And **only when the status actually changed** - re-sending the answer a booking already has is exactly what a client with a lost response does, and the endpoint accepts that quietly, so notifying there would tell her twice.
+
+The channel is `database` and nothing else. There is no device token anywhere in this system, so the answer waits in her feed and the bell counts it; adding push later means adding a channel to `via()` and a token store, and changes nothing here. The payload is a **copy** - both place names, the seat count, the worded `title` and `body` - not a set of ids to resolve later, because a feed has to render from what it holds and the ride can be edited out from under it. Only `booking_id` and `ride_id` point outward.
+
+`title` and `body` are worded server-side for the reason `status_label` is: a phone in somebody's pocket must not ship a release to reword a sentence.
+
+## The feed is generic; the notification is not
+`GET /api/notifications`, `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`, all `role:Driver,Passenger` and **no `verified.identity`** - reading what you have already been told is not doing anything. `read-all` is declared **before** the `{notification}` route or it would be read as a uuid.
+
+`NotificationResource` hoists `type`, `title` and `body` and passes the stored payload through whole as `data`. That is what lets a new kind of notification reach the screen with no client change. A resource that named a booking's fields would need a branch per notification class.
+
+**Every response carries `unread_count`**, including the two writes, so the bell never needs a second call to stay in step. `NotificationRepository` is scoped to a user on every method - there is no find-by-id that is not also "and it is theirs" - and somebody else's is a **404**, the same answer a ride that is not yours gives.
+
 ## What a driver sees about a passenger, and what they do not
 `RiderResource` - name and verification badge, and **no contact details**. It is deliberately not `UserResource`, which carries email, msisdn and date of birth. Whether a *confirmed* booking should unlock a phone number so the two can arrange a pickup is a real product question and a privacy decision; nothing in the API answers it yet, and it is not a field to bolt on.
 
@@ -99,8 +121,8 @@ A booking carries its ride and that ride's vehicle, but nothing about the person
 ## What does not exist yet
 **No cancellation.** `BookingStatus` exists now, but it is the *driver's* answer and not a passenger's way out - she cannot withdraw a request, and a confirmed seat cannot be given back by either side except by the driver declining it after the fact. A real cancellation still means deciding what happens to a ride whose last passenger leaves.
 
-**Nobody is told anything.** A driver is not notified that somebody is waiting, and a passenger is not notified when her request is answered - she finds out by opening the app. That is the most conspicuous gap in this feature.
+**The driver is still not told that somebody is waiting.** The passenger is now told when her request is answered (above), but the mirror - "somebody has asked for a seat on your ride" - does not exist, so a driver only finds a queue by opening it. That is the next notification to write, and it needs nothing new: a second class beside `BookingDecided`, sent from `BookingService::book()`.
 
-**The driver app has no queue screen yet.** The endpoints and `BookingStatus` are carried through `apps/lib`, and a passenger sees the answer on her bookings, but nothing in the Flutter app lists pending requests or calls `PATCH /driver/bookings/{booking}`.
+**Nothing is pushed.** Delivery is the `database` channel and a feed the client reads. A passenger with the app closed learns nothing until she opens it, and one with it open learns nothing until she opens the bell - there is no polling and no socket. Push needs a device-token store and an FCM sender; it does not need any of this rewritten.
 
 `seats_offered` on a ride is what was *offered*; the seats still free are `seats_offered` minus the **holding** bookings' seats, which `RideResource` exposes as `seats_available`.

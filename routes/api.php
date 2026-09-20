@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\Driver\RideController;
 use App\Http\Controllers\Api\Driver\VehicleController;
 use App\Http\Controllers\Api\EmergencyContactController;
 use App\Http\Controllers\Api\FavouriteDriverController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\TravelRouteController;
 use App\Http\Controllers\Api\Verification\DocumentFileController;
 use App\Http\Controllers\Api\Verification\VerificationController;
@@ -112,6 +113,34 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/verification', [VerificationController::class, 'store'])
             ->middleware('throttle:document-upload')
             ->name('api.verification.store');
+
+        /*
+         * What they were told while they were not looking. Open to both
+         * riding roles for the same reason emergency contacts are: either
+         * end of a ride can be told something. Today that is the driver's
+         * answer to a request for seats - a seat is asked for, not taken, so
+         * the passenger has been waiting on exactly that.
+         *
+         * No `verified.identity` anywhere here: reading what you have
+         * already been told is not doing anything.
+         */
+        Route::get('/notifications', [NotificationController::class, 'index'])
+            ->name('api.notifications.index');
+
+        /*
+         * Clearing the bell. Declared before the `{notification}` route, or
+         * "read-all" would be read as a uuid and answer 404.
+         */
+        Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])
+            ->name('api.notifications.read-all');
+
+        /*
+         * One of them. Somebody else's is a 404, the same answer a ride that
+         * is not yours gives, and marking one twice is accepted quietly so a
+         * lost response is safe to repeat.
+         */
+        Route::post('/notifications/{notification}/read', [NotificationController::class, 'update'])
+            ->name('api.notifications.read');
 
         // Both sides of a ride can go wrong, so a driver keeps the same
         // emergency contact list a passenger does.
