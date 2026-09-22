@@ -39,34 +39,25 @@ class DatabaseSeeder extends Seeder
         User::factory()->admin()->create([
             'first_name' => 'Jatriq',
             'last_name' => 'Admin',
-            'email' => 'admin@jatriq.test',
-            'msisdn' => '1700000000',
+            'email' => 'admin@yopmail.com',
+            'msisdn' => '1700000001',
             'password' => $password,
         ]);
 
         User::factory()->create([
             'first_name' => 'Test',
             'last_name' => 'Passenger',
-            'email' => 'passenger@jatriq.test',
-            'msisdn' => '1700000001',
+            'email' => 'passenger@yopmail.com',
+            'msisdn' => '1700000002',
             'password' => $password,
         ]);
 
         User::factory()->driver()->create([
             'first_name' => 'Test',
             'last_name' => 'Driver',
-            'email' => 'driver@jatriq.test',
-            'msisdn' => '1700000002',
+            'email' => 'driver@yopmail.com',
+            'msisdn' => '1700000003',
             'password' => $password,
         ]);
-
-        /*
-         * Traffic on the roads above, and the two things that otherwise make
-         * the ride feature untestable by hand: the driver gets a vehicle and
-         * a badge so they can publish, and the passenger gets a badge so she
-         * can book. Development data - it runs after the accounts because it
-         * needs them, and it prints the searches worth trying.
-         */
-        $this->call(RideSeeder::class);
     }
 }

@@ -24,23 +24,44 @@ return new class extends Migration
             $table->foreignId('vehicle_id')->constrained()->cascadeOnDelete();
 
             /*
-             * Both ends of the trip: the label the driver picked out of
-             * Google's place search, the coordinates behind it, and the place
-             * id when the client sent one. Decimal rather than a spatial
-             * POINT - see config/rides.php.
+             * Which corridor the ride runs on. Resolved by RideService from
+             * the stops the driver picked - the request never names a route,
+             * exactly as it never names a vehicle.
              *
-             * Latitude spans -90..90 and longitude -180..180, hence one more
-             * digit of precision on the longitude columns.
+             * Nullable because a ride may be published with two free-text
+             * ends and no corridor; such a ride still lists under an
+             * unfiltered GET /rides but can never match a route search.
+             *
+             * restrictOnDelete rather than cascade: deleting a corridor or a
+             * stop that rides are published against would delete the rides
+             * and, through them, somebody's booking. Retire it with
+             * is_active instead.
+             */
+            $table->foreignId('travel_route_id')->nullable()
+                ->constrained()->restrictOnDelete();
+
+            /*
+             * Both ends of the trip: the stop the driver picked, and the
+             * label beside it as a **snapshot** taken at publish time, so
+             * renaming a stop never rewrites a trip somebody already agreed
+             * to.
+             *
+             * The two stops' positions on that corridor are copied here too,
+             * so the search is four integer comparisons against one table
+             * instead of two joins through the pivot per ride. The trap that
+             * follows is that RENUMBERING A ROUTE does not move these - which
+             * is why sequences are seeded in tens, so inserting a stop never
+             * needs a renumber.
              */
             $table->string('origin_label');
-            $table->decimal('origin_latitude', 10, 8);
-            $table->decimal('origin_longitude', 11, 8);
-            $table->string('origin_place_id')->nullable();
+            $table->foreignId('origin_stop_id')->nullable()
+                ->constrained('stops')->restrictOnDelete();
+            $table->unsignedSmallInteger('origin_sequence')->nullable();
 
             $table->string('destination_label');
-            $table->decimal('destination_latitude', 10, 8);
-            $table->decimal('destination_longitude', 11, 8);
-            $table->string('destination_place_id')->nullable();
+            $table->foreignId('destination_stop_id')->nullable()
+                ->constrained('stops')->restrictOnDelete();
+            $table->unsignedSmallInteger('destination_sequence')->nullable();
 
             // When the vehicle leaves the start point.
             $table->dateTime('departs_at');
@@ -56,6 +77,9 @@ return new class extends Migration
 
             // The query the driver's own upcoming list makes.
             $table->index(['user_id', 'departs_at']);
+
+            // The passenger search: a corridor's upcoming rides, soonest first.
+            $table->index(['travel_route_id', 'departs_at']);
         });
     }
 

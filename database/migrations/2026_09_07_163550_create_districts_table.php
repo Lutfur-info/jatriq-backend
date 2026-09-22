@@ -15,13 +15,14 @@ return new class extends Migration
             $table->id();
 
             /*
-             * One of the country's 64 districts. Until now this was a string
-             * typed into each stop, so "Cumilla", "cumilla" and "Comilla"
-             * were three different districts as far as anything could tell.
+             * One of the country's 64 districts. A row rather than a string
+             * typed onto each stop, where "Cumilla", "cumilla" and "Comilla"
+             * would be three different districts as far as anything could
+             * tell.
              *
-             * It is still only there so two same-named towns read apart in a
-             * picker - nothing matches on a district, and a ride knows
-             * nothing about one.
+             * It is only there so two same-named towns read apart in a picker
+             * - nothing matches on a district, and a ride knows nothing about
+             * one.
              */
             $table->string('name')->unique();
 

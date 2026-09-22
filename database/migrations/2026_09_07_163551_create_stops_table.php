@@ -21,22 +21,23 @@ return new class extends Migration
              * Cumilla sits on the Chattogram, Noakhali and Cox's Bazar runs
              * at three different sequences, and it must be the same stop in
              * all three or a search from Cumilla would only find one of them.
+             *
+             * There is nothing here that points at a map. Matching is done on
+             * a stop's `sequence` along a corridor and never on distance, so
+             * neither coordinates nor a Google place id would be read by
+             * anything; a town is a name, a district and a switch.
              */
             $table->string('name')->unique();
 
-            // Which district it is in, purely so two same-named towns read
-            // apart in a picker. Never matched on.
-            $table->string('district')->nullable();
-
             /*
-             * Where it is, for the map pin. Same decimal columns as the ride
-             * carries and for the same reason - the suite runs on sqlite,
-             * which has no spatial type. Matching is done on sequence, never
-             * on distance, so nothing here is load bearing.
+             * Which district it is in, purely so two same-named towns read
+             * apart in a picker. Never matched on.
+             *
+             * `nullOnDelete` rather than `restrictOnDelete`: a district is
+             * decoration on a picker label, unlike a stop on a ride, so
+             * losing one must never take a town off the network with it.
              */
-            $table->decimal('latitude', 10, 8);
-            $table->decimal('longitude', 11, 8);
-            $table->string('place_id')->nullable();
+            $table->foreignId('district_id')->nullable()->constrained()->nullOnDelete();
 
             // Retiring a stop hides it from the pickers without breaking the
             // rides already published against it.

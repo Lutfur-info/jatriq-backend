@@ -25,7 +25,12 @@ return new class extends Migration
 
             $table->enum('model', VehicleModel::names());
             $table->enum('cabin_class', CabinClass::names());
+
+            // Passenger seats only - the driver's own seat is not counted,
+            // because what a rider needs to know is how many people can
+            // travel. A ride's `seats_offered` is bounded by this.
             $table->unsignedTinyInteger('seats');
+
             $table->timestamps();
         });
     }
