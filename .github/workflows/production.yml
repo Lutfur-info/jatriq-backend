@@ -12,18 +12,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # 1. Setup PHP and install backend dependencies
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          tools: composer
+          coverage: none
 
       - name: Install Composer Dependencies
-        run: composer install --prefer-dist --no-progress --no-interaction --no-scripts --ignore-platform-reqs
+        run: composer install --prefer-dist --no-progress --no-interaction
 
       # 2. Setup Node and build frontend
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
 
