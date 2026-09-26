@@ -10,17 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           tools: composer
           coverage: none
 
       - name: Install Composer Dependencies
-        run: composer install --prefer-dist --no-progress --no-interaction
+        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-progress --no-interaction
+
+      # Wayfinder's Vite plugin runs `php artisan wayfinder:generate`, so the app must boot
+      - name: Prepare environment for build
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
 
       # 2. Setup Node and build frontend
       - name: Setup Node.js
@@ -71,14 +77,20 @@ jobs:
           port: ${{ secrets.JATRIQ_PROD_PORT }}
           password: ${{ secrets.JATRIQ_PROD_PASS }}
           script: |
+            set -e
             cd /home/u743881222/domains/opizzburger.fr/public_html/jatriq
 
-            # Discover packages (required since we used --no-scripts in CI)
-            php artisan package:discover --ansi
+            # Hostinger's default CLI php can be older than the site's; the lockfile needs 8.4
+            PHP=/opt/alt/php84/usr/bin/php
+            [ -x "$PHP" ] || PHP=php
+            $PHP -v
+
+            # Rebuild the package manifest against the uploaded vendor/
+            $PHP artisan package:discover --ansi
 
             # Clear and rebuild caches for production speed
-            php artisan optimize:clear
-            php artisan optimize
+            $PHP artisan optimize:clear
+            $PHP artisan optimize
 
             # Run database migrations automatically (Optional, remove if you prefer manual migrations)
-            php artisan migrate --force
+            $PHP artisan migrate --force
