@@ -11,13 +11,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
         # ---------- Node / Vite assets ----------
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install NPM dependencies
@@ -33,7 +33,6 @@ jobs:
           rm -f .env .env.example phpunit.xml
 
       # ---------- Deploy ----------
-
       - name: Copy files via SCP
         uses: appleboy/scp-action@master
         with:
