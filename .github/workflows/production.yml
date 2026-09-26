@@ -19,7 +19,7 @@ jobs:
           php-version: '8.3'
 
       - name: Install Composer Dependencies
-        run: composer install --prefer-dist --no-progress --no-interaction --no-scripts
+        run: composer install --prefer-dist --no-progress --no-interaction --no-scripts --ignore-platform-reqs
 
       # 2. Setup Node and build frontend
       - name: Setup Node.js
