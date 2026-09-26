@@ -1,0 +1,24 @@
+name: CI/CD Deployment
+
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy files via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.JATRIQ_PROD_HOST }}
+          username: ${{ secrets.JATRIQ_PROD_USER }}
+          port: ${{ secrets.JATRIQ_PROD_PORT }}
+          password: ${{ secrets.JATRIQ_PROD_PASS }}
+          source: "."
+          target: "/home/u743881222/domains/opizzburger.fr/public_html/jatriq"
