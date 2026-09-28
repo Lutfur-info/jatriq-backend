@@ -40,7 +40,7 @@ class DatabaseSeeder extends Seeder
             'first_name' => 'Jatriq',
             'last_name' => 'Admin',
             'email' => 'admin@yopmail.com',
-            'msisdn' => '1700000001',
+            'msisdn' => '01700000001',
             'password' => $password,
         ]);
 
@@ -48,7 +48,7 @@ class DatabaseSeeder extends Seeder
             'first_name' => 'Test',
             'last_name' => 'Passenger',
             'email' => 'passenger@yopmail.com',
-            'msisdn' => '1700000002',
+            'msisdn' => '01700000002',
             'password' => $password,
         ]);
 
@@ -56,7 +56,7 @@ class DatabaseSeeder extends Seeder
             'first_name' => 'Test',
             'last_name' => 'Driver',
             'email' => 'driver@yopmail.com',
-            'msisdn' => '1700000003',
+            'msisdn' => '01700000003',
             'password' => $password,
         ]);
     }
