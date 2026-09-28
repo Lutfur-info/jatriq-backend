@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
- * The reviewer's panel, at /admin.
+ * The reviewer's panel, at /backoffice.
  *
  * This is where verification happens: an admin reads an applicant's profile,
  * opens each submitted document and approves or rejects it. There are no API
@@ -43,7 +43,7 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
-            ->path('admin')
+            ->path('backoffice')
             ->login()
             ->brandName('Jatriq Admin')
             ->colors([

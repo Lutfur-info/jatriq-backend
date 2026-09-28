@@ -48,18 +48,18 @@ function documentAction(string $name, UserDocument $document): TestAction
 }
 
 it('sends a guest to the panel login page', function () {
-    $this->get('/admin')->assertRedirect('/admin/login');
+    $this->get('/backoffice')->assertRedirect('/backoffice/login');
 });
 
 it('lets an active admin in', function () {
     $this->actingAs($this->admin)
-        ->get('/admin')
+        ->get('/backoffice')
         ->assertOk();
 });
 
 it('keeps riders out of the panel', function (string $state) {
     $this->actingAs(User::factory()->{$state}()->create())
-        ->get('/admin')
+        ->get('/backoffice')
         ->assertStatus(Response::HTTP_FORBIDDEN);
 })->with(['driver', 'passenger']);
 
