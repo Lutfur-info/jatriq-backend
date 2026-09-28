@@ -12,6 +12,7 @@ use App\Models\UserDocument;
 use Filament\Actions\Testing\TestAction;
 use Filament\Auth\Pages\Login;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportTesting\Testable;
@@ -211,12 +212,36 @@ it('never creates or edits an applicant from the panel', function () {
         ->and(array_keys(UserResource::getPages()))->toBe(['index', 'view']);
 });
 
+/*
+ * Signed in through the session, the way the panel's login leaves a browser.
+ * `actingAs()` would hand the user straight to the guard and skip the session
+ * entirely, which is how the API route once passed here and 401'd in a tab.
+ */
+function panelSession(User $user): array
+{
+    return [Auth::guard('web')->getName() => $user->getKey()];
+}
+
 it('streams a document to a reviewer on a panel session, with no api token', function () {
     $document = UserDocument::factory()->for($this->applicant)->create();
 
     Storage::disk(config('verification.disk'))->put($document->path, 'scan');
 
-    $this->actingAs($this->admin)
-        ->get(route('api.documents.show', ['document' => $document]))
-        ->assertOk();
+    $this->withSession(panelSession($this->admin))
+        ->get(route('filament.admin.documents.show', ['document' => $document]))
+        ->assertOk()
+        ->assertStreamedContent('scan');
+});
+
+it('keeps the panel document route from anybody the panel does not admit', function () {
+    $document = UserDocument::factory()->for($this->applicant)->create();
+
+    Storage::disk(config('verification.disk'))->put($document->path, 'scan');
+
+    $this->get(route('filament.admin.documents.show', ['document' => $document]))
+        ->assertRedirect();
+
+    $this->withSession(panelSession($this->applicant))
+        ->get(route('filament.admin.documents.show', ['document' => $document]))
+        ->assertForbidden();
 });

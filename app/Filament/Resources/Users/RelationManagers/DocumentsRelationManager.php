@@ -71,10 +71,10 @@ class DocumentsRelationManager extends RelationManager
                     ->label('Open file')
                     ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
                     ->color('gray')
-                    // The private disk has no public URL: this is the same
-                    // authenticated reader the mobile app uses, and it
-                    // re-checks owner-or-admin on every request.
-                    ->url(fn (UserDocument $record): string => route('api.documents.show', ['document' => $record->getKey()]))
+                    // The private disk has no public URL. This is the panel's
+                    // own copy of the reader the mobile app uses: the API one
+                    // wants a bearer token, which a browser tab does not send.
+                    ->url(fn (UserDocument $record): string => route('filament.admin.documents.show', ['document' => $record->getKey()]))
                     ->openUrlInNewTab(),
 
                 Action::make('approve')

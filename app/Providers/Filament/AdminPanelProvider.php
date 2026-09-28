@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Http\Controllers\Api\Verification\DocumentFileController;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -16,6 +17,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
@@ -70,6 +72,14 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            // The "Open file" link on a submitted document. It opens in a new
+            // tab carrying only this panel's session cookie, which the
+            // stateless `auth:sanctum` API route never reads, so the panel
+            // serves the file itself. Same controller, same owner-or-admin check.
+            ->authenticatedRoutes(function (): void {
+                Route::get('/documents/{document}', [DocumentFileController::class, 'show'])
+                    ->name('documents.show');
+            });
     }
 }
